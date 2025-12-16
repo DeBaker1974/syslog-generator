@@ -1,0 +1,68 @@
+Metadata-Version: 2.4
+Name: syslog-generator
+Version: 1.0.0
+Summary: A tool for generating realistic syslog messages for testing
+Author-email: Your Name <your.email@example.com>
+License: MIT
+Project-URL: Homepage, https://github.com/yourusername/syslog-generator
+Project-URL: Repository, https://github.com/yourusername/syslog-generator
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: System :: Logging
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: faker>=18.0.0
+Requires-Dist: colorama>=0.4.6
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: pylint>=2.17.0; extra == "dev"
+
+# Syslog Generator
+
+A comprehensive Python application for generating realistic syslog messages.
+Perfect for testing Elasticsearch ingestion pipelines, Logstash configurations,
+and Kibana dashboards.
+
+## Features
+
+- 📝 **Multiple Log Types**: Auth, network, application, system, security, database, web server
+- 🎯 **Realistic Messages**: Uses Faker for realistic IPs, usernames, timestamps
+- 📊 **Configurable Severity Distribution**: Control the mix of log levels
+- 🚀 **Multiple Output Modes**: Console, UDP, TCP, File, or all simultaneously
+- 💥 **Burst Mode**: Simulates incidents (brute force, DDoS, outages)
+- ⚡ **High Performance**: Capable of 1000+ messages/second
+- 🎨 **Color-coded Console Output**: Easy visual identification of severity
+- 📈 **Statistics Tracking**: Real-time and summary statistics
+
+## Quick Start
+
+### 1. Clone and Setup
+
+```bash
+# Clone or create the project directory
+mkdir syslog-generator
+cd syslog-generator
+
+# Create virtual environment
+python -m venv generator_venv
+
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source generator_venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt

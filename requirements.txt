@@ -1,0 +1,5 @@
+# requirements.txt
+pyyaml>=6.0
+faker>=18.0.0
+schedule>=1.2.0
+colorama>=0.4.6

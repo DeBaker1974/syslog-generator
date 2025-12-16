@@ -1,0 +1,91 @@
+// .vscode/launch.json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Generator (Console)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "syslog_generator.main",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--mode", "console",
+                "--rate", "5"
+            ]
+        },
+        {
+            "name": "Run Generator (High Rate)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "syslog_generator.main",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--preset", "high",
+                "--duration", "60"
+            ]
+        },
+        {
+            "name": "Run Generator (File Output)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "syslog_generator.main",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--mode", "file",
+                "--file", "./logs/syslog_output.log",
+                "--rate", "50",
+                "--count", "1000"
+            ]
+        },
+        {
+            "name": "Run Generator (UDP to Logstash)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "syslog_generator.main",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--mode", "udp",
+                "--host", "127.0.0.1",
+                "--port", "5514",
+                "--rate", "10"
+            ]
+        },
+        {
+            "name": "Run Generator (Burst Mode)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "syslog_generator.main",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--burst",
+                "--rate", "20",
+                "--duration", "120"
+            ]
+        },
+        {
+            "name": "Run Generator (Custom Config)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "syslog_generator.main",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--config", "config.yaml",
+                "--verbose"
+            ]
+        },
+        {
+            "name": "Debug Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

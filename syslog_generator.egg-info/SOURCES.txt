@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+syslog_generator/__init__.py
+syslog_generator/config.py
+syslog_generator/generator.py
+syslog_generator/main.py
+syslog_generator/sender.py
+syslog_generator/templates.py
+syslog_generator.egg-info/PKG-INFO
+syslog_generator.egg-info/SOURCES.txt
+syslog_generator.egg-info/dependency_links.txt
+syslog_generator.egg-info/entry_points.txt
+syslog_generator.egg-info/requires.txt
+syslog_generator.egg-info/top_level.txt

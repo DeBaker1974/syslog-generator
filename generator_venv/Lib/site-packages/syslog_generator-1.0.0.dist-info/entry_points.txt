@@ -1,0 +1,2 @@
+[console_scripts]
+syslog-generator = syslog_generator.main:main

@@ -1,0 +1,55 @@
+# config.yaml
+generator:
+  # Messages per second (use float for slower rates, e.g., 0.5 = 1 msg every 2 sec)
+  rate: 10
+  # Total messages to generate (0 = unlimited)
+  max_messages: 0
+  # Duration in seconds (0 = unlimited)
+  duration: 0
+
+output:
+  # Options: udp, tcp, file, console, all
+  mode: console
+  
+  # Syslog server settings (for udp/tcp modes)
+  syslog_host: "127.0.0.1"
+  syslog_port: 514
+  
+  # File output settings
+  file_path: "./logs/syslog_output.log"
+  file_rotation: true
+  max_file_size_mb: 100
+
+message_profiles:
+  # Enable/disable specific log types
+  auth_logs: true
+  network_logs: true
+  application_logs: true
+  system_logs: true
+  security_logs: true
+  database_logs: true
+  web_server_logs: true
+
+# Distribution of severity levels (weights)
+severity_distribution:
+  emergency: 1
+  alert: 2
+  critical: 5
+  error: 15
+  warning: 25
+  notice: 20
+  info: 25
+  debug: 7
+
+# Simulated hosts
+hosts:
+  - web-server-01
+  - web-server-02
+  - db-master-01
+  - db-replica-01
+  - app-server-01
+  - app-server-02
+  - firewall-01
+  - load-balancer-01
+  - auth-server-01
+  - monitoring-01
