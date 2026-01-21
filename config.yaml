@@ -1,7 +1,7 @@
 # config.yaml
 generator:
   # Messages per second (use float for slower rates, e.g., 0.5 = 1 msg every 2 sec)
-  rate: 10
+  rate: 50
   # Total messages to generate (0 = unlimited)
   max_messages: 0
   # Duration in seconds (0 = unlimited)
@@ -9,7 +9,7 @@ generator:
 
 output:
   # Options: udp, tcp, file, console, all
-  mode: console
+  mode: udp
   
   # Syslog server settings (for udp/tcp modes)
   syslog_host: "127.0.0.1"

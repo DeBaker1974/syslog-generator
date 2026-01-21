@@ -1,0 +1,34 @@
+# .gitignore
+
+# Environment files (contain secrets!)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Keep the example
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+
+# Logs
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
