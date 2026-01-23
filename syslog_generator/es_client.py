@@ -1,8 +1,8 @@
-"""Elasticsearch client for shipping logs."""
+"""Elasticsearch client for shipping logs to data streams."""
 
 import logging
-from datetime import datetime
-from typing import Optional, Dict, Any
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any, Tuple, List
 
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class ESClient:
-    """Elasticsearch client with bulk indexing support."""
+    """Elasticsearch client with bulk indexing support for data streams."""
 
     FACILITY_NAMES = {
         0: "kern", 1: "user", 2: "mail", 3: "daemon",
@@ -32,18 +32,27 @@ class ESClient:
         api_key: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[str] = None,
-        index: str = "logs",
+        index: Optional[str] = None,
+        dataset: str = "syslog",
+        namespace: str = "default",
         buffer_size: int = 500,
         verify_certs: bool = True
     ):
-        """Initialize Elasticsearch client."""
-        self.index = index  # Just "logs" - no suffix
+        """Initialize Elasticsearch client for data streams."""
+        self.dataset = dataset.lower()
+        self.namespace = namespace.lower()
+
+        if index:
+            self.index = index.lower()
+            self._parse_index_name(self.index)
+        else:
+            self.index = f"logs-{self.dataset}-{self.namespace}"
+
         self.buffer_size = buffer_size
-        self._buffer = []
+        self._buffer: List[Dict] = []
         self._total_indexed = 0
         self._total_failed = 0
 
-        # Build connection kwargs
         es_kwargs = {
             "hosts": [url],
             "verify_certs": verify_certs,
@@ -71,7 +80,15 @@ class ESClient:
 
         info = self.client.info()
         logger.info(f"Connected to ES: {info['cluster_name']} (v{info['version']['number']})")
-        logger.info(f"Target index: {self.index}")
+        logger.info(f"Data stream: {self.index}")
+        logger.info(f"  dataset: {self.dataset}, namespace: {self.namespace}")
+
+    def _parse_index_name(self, index: str) -> None:
+        """Parse dataset and namespace from index name if possible."""
+        parts = index.split('-')
+        if len(parts) >= 3 and parts[0] == 'logs':
+            self.dataset = parts[1]
+            self.namespace = '-'.join(parts[2:])
 
     def index_log(
         self,
@@ -88,52 +105,84 @@ class ESClient:
         **extra_fields
     ) -> None:
         """Add a log document to the buffer."""
-        ts = timestamp or datetime.utcnow()
+        facility = facility if facility is not None else 1  # user
+        severity = severity if severity is not None else 6  # informational
+        hostname = hostname or "unknown"
+        app_name = app_name or "unknown"
+        pid = pid if pid is not None else 0
+        message = message or ""
+        raw_message = raw_message or message
 
-        # Ensure proper ISO format with Z suffix
-        ts_str = ts.isoformat()
-        if not ts_str.endswith('Z'):
-            ts_str += 'Z'
+        ts = timestamp or datetime.now(timezone.utc)
 
+        # Proper timestamp format with milliseconds
+        if ts.tzinfo is None:
+            ts_str = ts.strftime('%Y-%m-%dT%H:%M:%S.') + f'{ts.microsecond // 1000:03d}Z'
+        else:
+            ts_utc = ts.astimezone(timezone.utc)
+            ts_str = ts_utc.strftime('%Y-%m-%dT%H:%M:%S.') + f'{ts_utc.microsecond // 1000:03d}Z'
+
+        # Build ECS-compliant document
         doc = {
             "_op_type": "create",
-            "_index": self.index,  # Just "logs"
+            "_index": self.index,
             "_source": {
                 "@timestamp": ts_str,
-                "message": message,
-                "syslog": {
-                    "facility": {
-                        "code": facility,
-                        "name": self.FACILITY_NAMES.get(facility, "unknown")
-                    },
-                    "severity": {
-                        "code": severity,
-                        "name": self.SEVERITY_NAMES.get(severity, "unknown")
-                    },
-                    "priority": facility * 8 + severity
+
+                "data_stream": {
+                    "type": "logs",
+                    "dataset": self.dataset,
+                    "namespace": self.namespace
                 },
+
+                "message": str(message),
+
                 "host": {
-                    "name": hostname
+                    "name": str(hostname)
                 },
+
                 "process": {
-                    "name": app_name,
-                    "pid": pid
+                    "name": str(app_name),
+                    "pid": int(pid)
                 },
-                "event": {
-                    "original": raw_message,
-                    "dataset": "syslog"
-                },
+
                 "log": {
-                    "level": self.SEVERITY_NAMES.get(severity, "unknown").upper()
+                    "level": self.SEVERITY_NAMES.get(severity, "info"),
+                    "syslog": {
+                        "facility": {
+                            "code": int(facility),
+                            "name": self.FACILITY_NAMES.get(facility, "user")
+                        },
+                        "severity": {
+                            "code": int(severity),
+                            "name": self.SEVERITY_NAMES.get(severity, "info")
+                        },
+                        "priority": int(facility * 8 + severity)
+                    }
+                },
+
+                "event": {
+                    "original": str(raw_message),
+                    "kind": "event"
+                },
+
+                "ecs": {
+                    "version": "8.11.0"
                 }
             }
         }
 
+        # Map severity to event.type
+        if severity <= 3:
+            doc["_source"]["event"]["type"] = ["error"]
+        else:
+            doc["_source"]["event"]["type"] = ["info"]
+
         if category:
-            doc["_source"]["event"]["category"] = category
+            doc["_source"]["event"]["category"] = [category]
 
         if metadata:
-            doc["_source"]["metadata"] = metadata
+            doc["_source"]["labels"] = metadata
 
         if extra_fields:
             doc["_source"]["custom"] = extra_fields
@@ -143,7 +192,7 @@ class ESClient:
         if len(self._buffer) >= self.buffer_size:
             self.flush()
 
-    def flush(self) -> tuple[int, int]:
+    def flush(self) -> Tuple[int, int]:
         """Flush buffered documents to Elasticsearch."""
         if not self._buffer:
             return 0, 0
@@ -162,15 +211,12 @@ class ESClient:
             errors = len(failed) if isinstance(failed, list) else 0
             self._total_indexed += success
             self._total_failed += errors
-            if success > 0:
-                self.client.indices.refresh(index=self.index)
 
             logger.debug(f"Indexed {success}/{buffer_len} to '{self.index}'")
             if errors > 0:
                 logger.warning(f"Failed: {errors}")
-                # Log first few error details
                 if isinstance(failed, list):
-                    for i, err in enumerate(failed[:3]):  # Show first 3 errors
+                    for i, err in enumerate(failed[:3]):
                         logger.error(f"  Error {i+1}: {err}")
 
         except Exception as e:
@@ -180,7 +226,6 @@ class ESClient:
             self._buffer = []
 
         return success, errors
-
 
     def close(self) -> None:
         """Flush remaining documents and close."""
@@ -192,11 +237,14 @@ class ESClient:
 
     @property
     def stats(self) -> dict:
+        """Get client statistics."""
         return {
             "total_indexed": self._total_indexed,
             "total_failed": self._total_failed,
             "buffer_size": len(self._buffer),
-            "index": self.index
+            "index": self.index,
+            "dataset": self.dataset,
+            "namespace": self.namespace
         }
 
     def __enter__(self):

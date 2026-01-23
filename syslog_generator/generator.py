@@ -4,7 +4,7 @@ import logging
 import random
 import socket
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 
 from .templates import MessageTemplates, SEVERITIES, FACILITIES
@@ -152,7 +152,7 @@ class SyslogGenerator:
             'hostname': template_data['host'],
             'app_name': template_data['app'],
             'pid': template_data.get('pid', 0),
-            'timestamp': datetime.now(),
+            'timestamp': datetime.now(timezone.utc),
             'category': template_data.get('category', 'unknown'),
             'metadata': template_data.get('metadata', {})
         }
@@ -548,7 +548,7 @@ class BurstGenerator(SyslogGenerator):
             'hostname': template_data['host'],
             'app_name': template_data['app'],
             'pid': template_data.get('pid', 0),
-            'timestamp': datetime.now(),
+            'timestamp': datetime.now(timezone.utc),
             'category': template_data.get('category', 'unknown'),
             'metadata': {
                 **template_data.get('metadata', {}),

@@ -9,7 +9,6 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from syslog_generator.config import load_config
-from syslog_generator.generator import SyslogGenerator, BurstGenerator
 
 
 logger = logging.getLogger(__name__)
@@ -62,6 +61,9 @@ Examples:
 
   # Burst mode (simulates incidents)
   python -m syslog_generator.main --burst
+
+  # Specify data stream components
+  python -m syslog_generator.main --dataset nginx --namespace prod
         """
     )
 
@@ -94,9 +96,8 @@ Examples:
     es_group = parser.add_argument_group('Elasticsearch Options')
     es_group.add_argument(
         '--es-target',
-        choices=['dev', 'staging', 'prod', 'qa'],
         default=None,
-        help='ES target environment (overrides ES_TARGET in .env)'
+        help='ES target environment (overrides ES_TARGET in .env). Examples: dev, staging, prod'
     )
     es_group.add_argument(
         '--no-es',
@@ -107,6 +108,24 @@ Examples:
         '--es-only',
         action='store_true',
         help='Send to Elasticsearch only (disable console/syslog output)'
+    )
+
+    # Data stream options
+    ds_group = parser.add_argument_group('Data Stream Options (logs-<dataset>-<namespace>)')
+    ds_group.add_argument(
+        '--dataset',
+        default=None,
+        help='Data stream dataset (e.g., syslog, nginx, myapp)'
+    )
+    ds_group.add_argument(
+        '--namespace',
+        default=None,
+        help='Data stream namespace (e.g., default, prod, dev)'
+    )
+    ds_group.add_argument(
+        '--index',
+        default=None,
+        help='Full index/data stream name (overrides dataset/namespace)'
     )
 
     # Generation options
@@ -173,55 +192,51 @@ def apply_presets(args: argparse.Namespace) -> None:
         args.rate = presets[args.preset]
 
 
-def init_elasticsearch(config):
+def init_elasticsearch(config, args):
     """Initialize Elasticsearch client from config.
 
     Args:
-        config: Loaded configuration object with elasticsearch settings
+        config: Loaded configuration object with es_target settings
+        args: Parsed command line arguments
 
     Returns:
         ESClient instance or None
     """
-    es_config = config.elasticsearch
-
     # Check if ES is enabled
-    if not getattr(es_config, 'enabled', False):
-        logger.info("Elasticsearch output disabled (ES_ENABLED=false)")
+    if not config.es_enabled:
+        logger.info("Elasticsearch output disabled")
         return None
 
-    # Check for URL
-    if not getattr(es_config, 'url', None):
-        logger.warning("No Elasticsearch URL configured")
+    # Get ES target config
+    es_target = config.es_target
+    if not es_target:
+        logger.warning("No Elasticsearch target configured")
         return None
 
-    # Determine authentication method
-    api_key = getattr(es_config, 'api_key', None)
-    username = getattr(es_config, 'username', None)
-    password = getattr(es_config, 'password', None)
-    verify_certs = getattr(es_config, 'verify_certs', True)
-    batch_size = getattr(es_config, 'batch_size', 500)
-    index_name = getattr(es_config, 'index', 'syslog')
-
-    if not api_key and not (username and password):
-        logger.error("No Elasticsearch authentication configured (need API key or username/password)")
-        return None
+    # Command line overrides for data stream components
+    dataset = args.dataset if args.dataset else es_target.dataset
+    namespace = args.namespace if args.namespace else es_target.namespace
+    index = args.index if args.index else es_target.index
 
     try:
         from syslog_generator.es_client import ESClient
 
         es_client = ESClient(
-            url=es_config.url,
-            api_key=api_key,
-            username=username,
-            password=password,
-            index=index_name,
-            buffer_size=batch_size,
-            verify_certs=verify_certs
+            url=es_target.url,
+            api_key=es_target.api_key,
+            username=es_target.username,
+            password=es_target.password,
+            index=index,
+            dataset=dataset,
+            namespace=namespace,
+            buffer_size=es_target.batch_size,
+            verify_certs=es_target.verify_certs
         )
 
-        target = getattr(es_config, 'target', 'unknown')
-        logger.info(f"✓ Elasticsearch [{target.upper()}] -> {es_config.url}")
-        logger.info(f"  Index: {index_name}, Batch size: {batch_size}")
+        logger.info(f"✓ Elasticsearch [{es_target.name.upper()}] -> {es_target.url}")
+        logger.info(f"  Data stream: {es_client.index}")
+        logger.info(f"  Dataset: {es_client.dataset}, Namespace: {es_client.namespace}")
+        logger.info(f"  Batch size: {es_target.batch_size}")
         return es_client
 
     except ImportError:
@@ -248,7 +263,7 @@ def main() -> int:
         os.environ['ES_TARGET'] = args.es_target
         logger.info(f"ES target overridden to: {args.es_target}")
 
-    # Handle --no-es flag by disabling ES before config load
+    # Handle --no-es flag
     if args.no_es:
         os.environ['ES_ENABLED'] = 'false'
 
@@ -263,7 +278,9 @@ def main() -> int:
         return 1
 
     # Initialize Elasticsearch client from config
-    es_client = init_elasticsearch(config)
+    es_client = None
+    if not args.no_es:
+        es_client = init_elasticsearch(config, args)
 
     # Check if --es-only was requested but ES failed
     if args.es_only and not es_client:
@@ -307,6 +324,8 @@ def main() -> int:
 
     # Create and start generator
     try:
+        from syslog_generator.generator import SyslogGenerator, BurstGenerator
+
         if args.burst:
             generator = BurstGenerator(config)
         else:
