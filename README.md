@@ -28,7 +28,7 @@ mkdir syslog-generator
 cd syslog-generator
 
 # Create virtual environment
-python -m venv generator_venv
+python3 -m venv generator_venv
 
 # Activate virtual environment
 # On Windows:
